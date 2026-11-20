@@ -358,6 +358,10 @@ private class FakeSettingsRepository(
     override fun setManualInternalController(guid: String?) {
         state = state.copy(manualInternalGuid = guid)
     }
+
+    override fun setManualExternalController(guid: String?) {
+        state = state.copy(manualExternalGuid = guid)
+    }
 }
 
 private class RecordingShell : MirrorShell {

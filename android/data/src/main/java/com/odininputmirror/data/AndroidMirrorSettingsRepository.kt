@@ -21,6 +21,7 @@ class AndroidMirrorSettingsRepository(context: Context) : MirrorSettingsReposito
             expectedRunning = prefs.getBoolean(KEY_EXPECTED_RUNNING, false),
             startedAt = prefs.getLong(KEY_STARTED_AT, 0L),
             manualInternalGuid = prefs.getString(KEY_MANUAL_INTERNAL_GUID, null),
+            manualExternalGuid = prefs.getString(KEY_MANUAL_EXTERNAL_GUID, null),
             configGeneration = prefs.getLong(KEY_CONFIG_GENERATION, 0L),
         )
     }
@@ -81,12 +82,16 @@ class AndroidMirrorSettingsRepository(context: Context) : MirrorSettingsReposito
         prefs.edit().putBoolean(KEY_AUTO_MIRROR_ENABLED, enabled).apply()
     }
 
-    override fun setManualInternalController(guid: String?) {
+    override fun setManualInternalController(guid: String?) = setOptionalGuid(KEY_MANUAL_INTERNAL_GUID, guid)
+
+    override fun setManualExternalController(guid: String?) = setOptionalGuid(KEY_MANUAL_EXTERNAL_GUID, guid)
+
+    private fun setOptionalGuid(key: String, guid: String?) {
         prefs.edit().apply {
             if (guid.isNullOrBlank()) {
-                remove(KEY_MANUAL_INTERNAL_GUID)
+                remove(key)
             } else {
-                putString(KEY_MANUAL_INTERNAL_GUID, guid)
+                putString(key, guid)
             }
         }.apply()
     }

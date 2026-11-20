@@ -13,4 +13,5 @@ data class MirrorStatus(
     val autoMirrorEnabled: Boolean,
     val docked: Boolean,
     val manualInternalGuid: String?,
+    val manualExternalGuid: String? = null,
 )

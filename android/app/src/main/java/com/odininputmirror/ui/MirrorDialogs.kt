@@ -71,7 +71,9 @@ internal fun UnsupportedDeviceDialog(serviceUnresponsive: Boolean) {
 }
 
 @Composable
-internal fun InternalControllerPicker(
+internal fun ControllerPicker(
+    title: String,
+    emptyMessage: String,
     devices: List<ControllerDevice>,
     selectedGuid: String?,
     onSelect: (String?) -> Unit,
@@ -86,7 +88,7 @@ internal fun InternalControllerPicker(
                 .border(1.dp, Palette.border, RoundedCornerShape(14.dp))
                 .padding(horizontal = 24.dp, vertical = 20.dp),
         ) {
-            Text("Select internal controller", color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+            Text(title, color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(14.dp))
             Column(
                 modifier = Modifier
@@ -96,7 +98,7 @@ internal fun InternalControllerPicker(
                 PickerOption(name = "Automatic (detect)", selected = selectedGuid == null) { onSelect(null) }
                 if (devices.isEmpty()) {
                     Text(
-                        "No controllers detected. Connect the built-in controller and try again.",
+                        emptyMessage,
                         color = Palette.textSecondary,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(vertical = 12.dp),

@@ -462,6 +462,62 @@ class AndroidInputDeviceRepositoryTest {
         assertNull(repository.resolveMappingKey("Xbox Wireless Controller", entries))
     }
 
+    // -- Retroid Pocket 5 ------------------------------------------------------
+    // /proc/bus/input/devices as captured on an RP5 with a Switch Pro pad connected over Bluetooth.
+    // The original node (event10) has been deleted by the firmware; only its 2022:3001 twin remains.
+
+    private val rp5Entries = listOf(
+        procEntry("Xbox Wireless Controller", BUS_USB, 0x2022, 0x3002, eventName = "event8"),
+        procEntry("Retroid Pocket Virtual Mouse", BUS_USB, 0x2022, 0x3001, eventName = "event9"),
+        procEntry("Nintendo Switch Pro Controller", BUS_BLUETOOTH, 0x057e, 0x2009, eventName = "event10"),
+        procEntry("Nintendo Switch Pro Controller", BUS_USB, 0x2022, 0x3001, eventName = "event11"),
+    )
+    private val rp5Repository = AndroidInputDeviceRepository(pathExists = { it != "/dev/input/event10" })
+
+    @Test
+    fun rp5ExternalPadResolvesToItsTwinNotTheVirtualMouseSharingItsId() {
+        val candidate = ControllerCandidate(
+            name = "Nintendo Switch Pro Controller",
+            vendorId = 0x2022,
+            productId = 0x3001,
+            controllerNumber = 2,
+            guid = guidOf(0x2022, 0x3001),
+        )
+
+        val result = rp5Repository.resolveControllerDevice(
+            candidate,
+            rp5Entries,
+            rp5Repository.computeMirroredNames(rp5Entries),
+        )
+
+        assertEquals("/dev/input/event11", result?.path)
+        assertEquals("Nintendo Switch Pro Controller", result?.name)
+        assertFalse(result!!.isInternal)
+        assertEquals("/dev/input/event11", result.hideNodePath)
+        assertEquals(MappingKey("057e:2009"), result.mappingKey)
+    }
+
+    @Test
+    fun rp5BuiltInPadIsRecognisedAsInternal() {
+        val candidate = ControllerCandidate(
+            name = "Xbox Wireless Controller",
+            vendorId = 0x2022,
+            productId = 0x3002,
+            controllerNumber = 1,
+            guid = guidOf(0x2022, 0x3002),
+        )
+
+        val result = rp5Repository.resolveControllerDevice(
+            candidate,
+            rp5Entries,
+            rp5Repository.computeMirroredNames(rp5Entries),
+        )
+
+        assertEquals("/dev/input/event8", result?.path)
+        assertTrue(result!!.isInternal)
+        assertTrue(result.isKnownInternal)
+    }
+
     private fun procEntry(
         name: String,
         bus: Int,
