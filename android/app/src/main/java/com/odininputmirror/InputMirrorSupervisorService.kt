@@ -240,6 +240,7 @@ class InputMirrorSupervisorService : Service() {
                 autoMirrorEnabled = settings.autoMirrorEnabled,
                 docked = dockActive,
                 manualInternalGuid = settings.manualInternalGuid,
+                manualExternalGuid = settings.manualExternalGuid,
             ),
         )
     }

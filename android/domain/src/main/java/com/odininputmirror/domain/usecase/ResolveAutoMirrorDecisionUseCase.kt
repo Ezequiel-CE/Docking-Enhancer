@@ -3,6 +3,7 @@ package com.odininputmirror.domain.usecase
 import com.odininputmirror.domain.model.ControllerDevice
 import com.odininputmirror.domain.model.MirrorSettings
 import com.odininputmirror.domain.model.MirrorStartRequest
+import com.odininputmirror.domain.model.selectExternalController
 
 class ResolveAutoMirrorDecisionUseCase {
     operator fun invoke(
@@ -21,12 +22,8 @@ class ResolveAutoMirrorDecisionUseCase {
 
         val local = devices.firstOrNull { it.isInternal }
             ?: return AutoMirrorDecision.WaitingForInternalController
-        val external = devices.firstOrNull { !it.isInternal && !it.isSamePhysicalControllerAs(local) }
+        val external = devices.selectExternalController(local, settings.manualExternalGuid)
             ?: return AutoMirrorDecision.WaitingForExternalController
-
-        if (local.path == external.path) {
-            return AutoMirrorDecision.WaitingForExternalController
-        }
 
         // Hiding the external's framework-visible Odin node is the mirror's default behaviour.
         val request = MirrorStartRequest(
@@ -66,10 +63,6 @@ class ResolveAutoMirrorDecisionUseCase {
             AutoMirrorDecision.Start(request)
         }
     }
-}
-
-private fun ControllerDevice.isSamePhysicalControllerAs(other: ControllerDevice): Boolean {
-    return controllerNumber > 0 && controllerNumber == other.controllerNumber
 }
 
 sealed class AutoMirrorDecision {

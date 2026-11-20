@@ -236,6 +236,50 @@ class MirrorUseCaseTest {
     }
 
     @Test
+    fun autoMirrorPrefersTheManuallyPickedExternalController() {
+        val virtualMouse = externalController(path = "/dev/input/event5", guid = "virtual-mouse", controllerNumber = 2)
+        val realPad = externalController(path = "/dev/input/event9", guid = "real-pad", controllerNumber = 3)
+
+        val decision = ResolveAutoMirrorDecisionUseCase()(
+            dockActive = true,
+            devices = listOf(localController(), virtualMouse, realPad),
+            settings = MirrorSettings(manualExternalGuid = "real-pad"),
+            mirrorRunning = false,
+        )
+
+        assertEquals(
+            AutoMirrorDecision.Start(mirrorRequest(source = "/dev/input/event9", sourceGuid = "real-pad")),
+            decision,
+        )
+    }
+
+    @Test
+    fun autoMirrorWaitsWhileThePickedExternalIsAbsentInsteadOfFallingBack() {
+        val virtualMouse = externalController(path = "/dev/input/event5", guid = "virtual-mouse")
+
+        val decision = ResolveAutoMirrorDecisionUseCase()(
+            dockActive = true,
+            devices = listOf(localController(), virtualMouse),
+            settings = MirrorSettings(manualExternalGuid = "real-pad"),
+            mirrorRunning = false,
+        )
+
+        assertEquals(AutoMirrorDecision.WaitingForExternalController, decision)
+    }
+
+    @Test
+    fun autoMirrorIgnoresAManualExternalPickThatIsTheInternalController() {
+        val decision = ResolveAutoMirrorDecisionUseCase()(
+            dockActive = true,
+            devices = listOf(localController(), externalController()),
+            settings = MirrorSettings(manualExternalGuid = "local-guid"),
+            mirrorRunning = false,
+        )
+
+        assertEquals(AutoMirrorDecision.WaitingForExternalController, decision)
+    }
+
+    @Test
     fun autoMirrorWaitsForExternalController() {
         val decision = ResolveAutoMirrorDecisionUseCase()(
             dockActive = true,
@@ -601,6 +645,10 @@ private class FakeMirrorSettingsRepository(
 
     override fun setManualInternalController(guid: String?) {
         state = state.copy(manualInternalGuid = guid)
+    }
+
+    override fun setManualExternalController(guid: String?) {
+        state = state.copy(manualExternalGuid = guid)
     }
 }
 
