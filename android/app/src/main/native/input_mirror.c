@@ -71,6 +71,19 @@ static const long long MOUSE_TOGGLE_HOLD_MS = 500;
 #endif
 #define ODIN_VENDOR_ID 0x2020
 #define ODIN_NINTENDO_PRODUCT_ID 0x0111
+#define RETROID_VENDOR_ID 0x2022
+
+// The vendor a node must carry before hide_node will unlink it. Each supported handheld republishes
+// external pads under its OWN vendor — the same one its built-in pad (the mirror target) carries —
+// so the target says which vendor marks a firmware twin on this device. Only vendors known to behave
+// that way are trusted; anything else keeps the original Odin-only rule, so an unrecognised target
+// can never widen what the daemon is willing to delete.
+static unsigned short hide_vendor_for_target(int have_target_id, unsigned short target_vendor) {
+    if (have_target_id && (target_vendor == ODIN_VENDOR_ID || target_vendor == RETROID_VENDOR_ID)) {
+        return target_vendor;
+    }
+    return ODIN_VENDOR_ID;
+}
 
 static unsigned short swap_nintendo_face_button(unsigned short code) {
     switch (code) {
@@ -757,11 +770,14 @@ int main(int argc, char **argv) {
     }
 
     struct input_id target_id;
-    if (ioctl(s.target_fd, EVIOCGID, &target_id) == 0) {
+    memset(&target_id, 0, sizeof(target_id));
+    int have_target_id = ioctl(s.target_fd, EVIOCGID, &target_id) == 0;
+    if (have_target_id) {
         s.swap_nintendo_layout =
             target_id.vendor == ODIN_VENDOR_ID &&
             target_id.product == ODIN_NINTENDO_PRODUCT_ID;
     }
+    const unsigned short hide_vendor = hide_vendor_for_target(have_target_id, target_id.vendor);
 
     // Virtual mouse setup: resolve which source axes drive the pointer, and capture the source's rest
     // state so release_target_holds can neutralise a held trigger/stick — a trigger's rest value is
@@ -846,7 +862,7 @@ int main(int argc, char **argv) {
     struct hidden_node hidden[MAX_HIDE_NODES];
     memset(hidden, 0, sizeof(hidden));
     for (int i = 0; i < hide_count; i++) {
-        hide_node(hide_paths[i], &hidden[i], ODIN_VENDOR_ID);
+        hide_node(hide_paths[i], &hidden[i], hide_vendor);
     }
     write_hidden_state(hidden_state_path, hidden, hide_count);
 
