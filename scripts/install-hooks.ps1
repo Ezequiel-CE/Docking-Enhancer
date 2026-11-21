@@ -13,7 +13,7 @@ try {
         throw "git config failed with exit code $LASTEXITCODE"
     }
     Write-Host "core.hooksPath -> scripts/hooks"
-    Write-Host "Installed: pre-commit (refuses a native source change without its rebuilt binary)"
+    Write-Host "Installed: pre-commit (refuses FORCE_DOCK_MODE_FOR_DEV left on, and a native source change without its rebuilt binary)"
 } finally {
     Pop-Location
 }
