@@ -22,7 +22,7 @@ class ResolveAutoMirrorDecisionUseCase {
 
         val local = devices.firstOrNull { it.isInternal }
             ?: return AutoMirrorDecision.WaitingForInternalController
-        val external = devices.selectExternalController(local, settings.manualExternalGuid)
+        val external = devices.selectExternalController(local, settings.manualExternalGuid, settings.manualExternalName)
             ?: return AutoMirrorDecision.WaitingForExternalController
 
         // Hiding the external's framework-visible Odin node is the mirror's default behaviour.

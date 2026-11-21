@@ -253,6 +253,75 @@ class MirrorUseCaseTest {
         )
     }
 
+    // As on a real RP5: the virtual mouse and the external pad's twin are both 2022:3001, so their
+    // guids are identical and the mouse, listed first, wins any match on the guid alone.
+    @Test
+    fun autoMirrorTellsThePickedPadFromADeviceSharingItsGuidByName() {
+        val sharedGuid = "00000000000030010000000000002022"
+        val virtualMouse = externalController(
+            path = "/dev/input/event9",
+            guid = sharedGuid,
+            controllerNumber = 2,
+            name = "Retroid Pocket Virtual Mouse",
+        )
+        val pad = externalController(
+            path = "/dev/input/event11",
+            guid = sharedGuid,
+            controllerNumber = 3,
+            name = "Nintendo Switch Pro Controller",
+        )
+
+        val decision = ResolveAutoMirrorDecisionUseCase()(
+            dockActive = true,
+            devices = listOf(localController(), virtualMouse, pad),
+            settings = MirrorSettings(
+                manualExternalGuid = sharedGuid,
+                manualExternalName = "Nintendo Switch Pro Controller",
+            ),
+            mirrorRunning = false,
+        )
+
+        assertEquals(
+            AutoMirrorDecision.Start(mirrorRequest(source = "/dev/input/event11", sourceGuid = sharedGuid)),
+            decision,
+        )
+    }
+
+    @Test
+    fun autoMirrorWaitsWhenOnlyADeviceSharingThePickedGuidIsPresent() {
+        val sharedGuid = "00000000000030010000000000002022"
+        val virtualMouse = externalController(
+            path = "/dev/input/event9",
+            guid = sharedGuid,
+            name = "Retroid Pocket Virtual Mouse",
+        )
+
+        val decision = ResolveAutoMirrorDecisionUseCase()(
+            dockActive = true,
+            devices = listOf(localController(), virtualMouse),
+            settings = MirrorSettings(
+                manualExternalGuid = sharedGuid,
+                manualExternalName = "Nintendo Switch Pro Controller",
+            ),
+            mirrorRunning = false,
+        )
+
+        assertEquals(AutoMirrorDecision.WaitingForExternalController, decision)
+    }
+
+    // A pick saved before names were recorded has only the guid, and must keep working.
+    @Test
+    fun autoMirrorStillHonoursAPickSavedWithoutAName() {
+        val decision = ResolveAutoMirrorDecisionUseCase()(
+            dockActive = true,
+            devices = listOf(localController(), externalController(guid = "real-pad")),
+            settings = MirrorSettings(manualExternalGuid = "real-pad", manualExternalName = null),
+            mirrorRunning = false,
+        )
+
+        assertEquals(AutoMirrorDecision.Start(mirrorRequest(sourceGuid = "real-pad")), decision)
+    }
+
     @Test
     fun autoMirrorWaitsWhileThePickedExternalIsAbsentInsteadOfFallingBack() {
         val virtualMouse = externalController(path = "/dev/input/event5", guid = "virtual-mouse")
@@ -514,8 +583,9 @@ class MirrorUseCaseTest {
         guid: String = "external-guid",
         controllerNumber: Int = 2,
         hideNodePath: String? = null,
+        name: String = "External Controller",
     ) = ControllerDevice(
-        name = "External Controller",
+        name = name,
         path = path,
         guid = guid,
         controllerNumber = controllerNumber,
@@ -647,8 +717,8 @@ private class FakeMirrorSettingsRepository(
         state = state.copy(manualInternalGuid = guid)
     }
 
-    override fun setManualExternalController(guid: String?) {
-        state = state.copy(manualExternalGuid = guid)
+    override fun setManualExternalController(guid: String?, name: String?) {
+        state = state.copy(manualExternalGuid = guid, manualExternalName = name)
     }
 }
 

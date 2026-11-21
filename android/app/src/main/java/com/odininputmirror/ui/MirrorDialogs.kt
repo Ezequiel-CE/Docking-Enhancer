@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.odininputmirror.domain.model.ControllerDevice
+import com.odininputmirror.domain.model.matchesManualPick
 import com.odininputmirror.ui.theme.Palette
 
 // The two modal surfaces of the mirror screen: the dead end for an unsupported device, and the
@@ -76,7 +77,11 @@ internal fun ControllerPicker(
     emptyMessage: String,
     devices: List<ControllerDevice>,
     selectedGuid: String?,
-    onSelect: (String?) -> Unit,
+    // Matched too when given: a guid is only vendor:product, so two devices can share one (the RP5's
+    // virtual mouse and a republished pad), and the guid alone would mark both as selected.
+    selectedName: String? = null,
+    // The picked device, or null for automatic. Devices without a guid cannot be saved as a pick.
+    onSelect: (ControllerDevice?) -> Unit,
     onClose: () -> Unit,
 ) {
     Dialog(onDismissRequest = onClose) {
@@ -107,8 +112,8 @@ internal fun ControllerPicker(
                     devices.forEach { device ->
                         PickerOption(
                             name = device.name,
-                            selected = device.guid.isNotEmpty() && device.guid == selectedGuid,
-                        ) { if (device.guid.isNotEmpty()) onSelect(device.guid) }
+                            selected = device.matchesManualPick(selectedGuid, selectedName),
+                        ) { if (device.guid.isNotEmpty()) onSelect(device) }
                     }
                 }
             }

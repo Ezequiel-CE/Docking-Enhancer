@@ -306,9 +306,9 @@ fun MirrorScreen(viewModel: MirrorViewModel) {
             // filtering anything out. "Automatic (detect)" stays available to undo a wrong pick.
             devices = state.devices.filter { it.path != state.externalDevice?.path },
             selectedGuid = state.manualInternalGuid,
-            onSelect = { guid ->
+            onSelect = { device ->
                 pickerOpen = false
-                viewModel.selectInternalController(guid)
+                viewModel.selectInternalController(device?.guid)
             },
             onClose = { pickerOpen = false },
         )
@@ -322,9 +322,10 @@ fun MirrorScreen(viewModel: MirrorViewModel) {
             // device list re-materialises it, so the current source stays pickable.
             devices = state.devices.filter { !it.isInternal && it.path != state.localDevice?.path },
             selectedGuid = state.manualExternalGuid,
-            onSelect = { guid ->
+            selectedName = state.manualExternalName,
+            onSelect = { device ->
                 externalPickerOpen = false
-                viewModel.selectExternalController(guid)
+                viewModel.selectExternalController(device)
             },
             onClose = { externalPickerOpen = false },
         )

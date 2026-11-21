@@ -22,6 +22,7 @@ class AndroidMirrorSettingsRepository(context: Context) : MirrorSettingsReposito
             startedAt = prefs.getLong(KEY_STARTED_AT, 0L),
             manualInternalGuid = prefs.getString(KEY_MANUAL_INTERNAL_GUID, null),
             manualExternalGuid = prefs.getString(KEY_MANUAL_EXTERNAL_GUID, null),
+            manualExternalName = prefs.getString(KEY_MANUAL_EXTERNAL_NAME, null),
             configGeneration = prefs.getLong(KEY_CONFIG_GENERATION, 0L),
         )
     }
@@ -84,7 +85,19 @@ class AndroidMirrorSettingsRepository(context: Context) : MirrorSettingsReposito
 
     override fun setManualInternalController(guid: String?) = setOptionalGuid(KEY_MANUAL_INTERNAL_GUID, guid)
 
-    override fun setManualExternalController(guid: String?) = setOptionalGuid(KEY_MANUAL_EXTERNAL_GUID, guid)
+    // Guid and name go in one edit: a pick stored half-written would match on the guid alone, which
+    // is exactly the ambiguity the name is there to resolve.
+    override fun setManualExternalController(guid: String?, name: String?) {
+        prefs.edit().apply {
+            if (guid.isNullOrBlank()) {
+                remove(KEY_MANUAL_EXTERNAL_GUID)
+                remove(KEY_MANUAL_EXTERNAL_NAME)
+            } else {
+                putString(KEY_MANUAL_EXTERNAL_GUID, guid)
+                if (name.isNullOrBlank()) remove(KEY_MANUAL_EXTERNAL_NAME) else putString(KEY_MANUAL_EXTERNAL_NAME, name)
+            }
+        }.apply()
+    }
 
     private fun setOptionalGuid(key: String, guid: String?) {
         prefs.edit().apply {

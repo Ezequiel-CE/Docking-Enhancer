@@ -27,6 +27,7 @@ class GetMirrorStatusUseCase(
             docked = dockStateRepository.isDockActive(),
             manualInternalGuid = settings.manualInternalGuid,
             manualExternalGuid = settings.manualExternalGuid,
+            manualExternalName = settings.manualExternalName,
         )
     }
 }

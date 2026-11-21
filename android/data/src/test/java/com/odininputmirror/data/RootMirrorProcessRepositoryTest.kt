@@ -359,8 +359,8 @@ private class FakeSettingsRepository(
         state = state.copy(manualInternalGuid = guid)
     }
 
-    override fun setManualExternalController(guid: String?) {
-        state = state.copy(manualExternalGuid = guid)
+    override fun setManualExternalController(guid: String?, name: String?) {
+        state = state.copy(manualExternalGuid = guid, manualExternalName = name)
     }
 }
 

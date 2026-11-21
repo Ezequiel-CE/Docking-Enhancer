@@ -225,7 +225,7 @@ class MappingEditorControllerTest {
         override fun setVirtualMouseEnabled(enabled: Boolean) = Unit
         override fun setAutoMirrorEnabled(enabled: Boolean) = Unit
         override fun setManualInternalController(guid: String?) = Unit
-        override fun setManualExternalController(guid: String?) = Unit
+        override fun setManualExternalController(guid: String?, name: String?) = Unit
         override fun bumpConfigGeneration() {
             bumps++
         }

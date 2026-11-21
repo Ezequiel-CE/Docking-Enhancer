@@ -5,7 +5,7 @@ import com.odininputmirror.domain.repository.MirrorSettingsRepository
 class SetManualExternalControllerUseCase(
     private val mirrorSettingsRepository: MirrorSettingsRepository,
 ) {
-    operator fun invoke(guid: String?) {
-        mirrorSettingsRepository.setManualExternalController(guid)
+    operator fun invoke(guid: String?, name: String?) {
+        mirrorSettingsRepository.setManualExternalController(guid, name)
     }
 }

@@ -241,6 +241,7 @@ class InputMirrorSupervisorService : Service() {
                 docked = dockActive,
                 manualInternalGuid = settings.manualInternalGuid,
                 manualExternalGuid = settings.manualExternalGuid,
+                manualExternalName = settings.manualExternalName,
             ),
         )
     }
