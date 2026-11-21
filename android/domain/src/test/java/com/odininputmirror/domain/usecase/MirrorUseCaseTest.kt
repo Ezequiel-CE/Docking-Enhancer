@@ -309,6 +309,57 @@ class MirrorUseCaseTest {
         assertEquals(AutoMirrorDecision.WaitingForExternalController, decision)
     }
 
+    @Test
+    fun autoMirrorStopsARunningMirrorWhenThePickedExternalIsAbsent() {
+        val virtualMouse = externalController(path = "/dev/input/event5", guid = "virtual-mouse")
+
+        val decision = ResolveAutoMirrorDecisionUseCase()(
+            dockActive = true,
+            devices = listOf(localController(), virtualMouse),
+            settings = MirrorSettings(
+                source = "/dev/input/event5",
+                target = "/dev/input/event2",
+                sourceGuid = "virtual-mouse",
+                targetGuid = "local-guid",
+                manualExternalGuid = "real-pad",
+            ),
+            mirrorRunning = true,
+        )
+
+        assertEquals(AutoMirrorDecision.StopForSourceChange, decision)
+    }
+
+    @Test
+    fun autoMirrorKeepsRunningOnThePickedExternal() {
+        val decision = ResolveAutoMirrorDecisionUseCase()(
+            dockActive = true,
+            devices = listOf(localController(), externalController(guid = "real-pad")),
+            settings = MirrorSettings(
+                source = "/dev/input/event9",
+                target = "/dev/input/event2",
+                sourceGuid = "real-pad",
+                targetGuid = "local-guid",
+                manualExternalGuid = "real-pad",
+            ),
+            mirrorRunning = true,
+        )
+
+        assertEquals(AutoMirrorDecision.Running, decision)
+    }
+
+    // Automatic mode is deliberately unchanged: no pick, no external, mirror running -> just wait.
+    @Test
+    fun autoMirrorOnlyWaitsWithoutAPickEvenWhileRunning() {
+        val decision = ResolveAutoMirrorDecisionUseCase()(
+            dockActive = true,
+            devices = listOf(localController()),
+            settings = MirrorSettings(),
+            mirrorRunning = true,
+        )
+
+        assertEquals(AutoMirrorDecision.WaitingForExternalController, decision)
+    }
+
     // A pick saved before names were recorded has only the guid, and must keep working.
     @Test
     fun autoMirrorStillHonoursAPickSavedWithoutAName() {

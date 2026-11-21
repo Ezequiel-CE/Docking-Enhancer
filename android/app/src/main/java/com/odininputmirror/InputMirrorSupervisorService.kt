@@ -148,6 +148,12 @@ class InputMirrorSupervisorService : Service() {
                         updateSupervisorState(SupervisorState.WaitingForExternalController)
                         sleepMs = SUPERVISOR_WAITING_FOR_DEVICE_INTERVAL_MS
                     }
+                    AutoMirrorDecision.StopForSourceChange -> {
+                        runCatching { graph.stopMirror() }
+                        // Stopped, so the next tick sees no mirror and simply waits for the pick.
+                        updateSupervisorState(SupervisorState.WaitingForExternalController)
+                        sleepMs = SUPERVISOR_WAITING_FOR_DEVICE_INTERVAL_MS
+                    }
                     AutoMirrorDecision.WaitingForRestartThrottle -> {
                         if (supervisorState != SupervisorState.MirrorStartFailed) {
                             updateSupervisorState(SupervisorState.Restarting)
