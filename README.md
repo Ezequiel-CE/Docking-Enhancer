@@ -57,6 +57,7 @@ That's the whole setup, and you only do it once.
 | Device | Status |
 | --- | --- |
 | **AYN Odin 2 / Portal** | Tested, primary target |
+| **Retroid Pocket 5** | Supported since v0.1.3, tested with a Nintendo Switch Pro Controller |
 | **AYN Odin 2 Mini** | Not supported — [ships the service but it doesn't respond](docs/TECHNICAL.md#the-odin-2-mini) |
 | Other handhelds with `PServerBinder` | Likely work, untested |
 
