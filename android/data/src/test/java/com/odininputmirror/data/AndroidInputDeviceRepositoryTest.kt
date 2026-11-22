@@ -518,6 +518,81 @@ class AndroidInputDeviceRepositoryTest {
         assertTrue(result.isKnownInternal)
     }
 
+    private val rp5XboxName = "Xbox Wireless Controller"
+    private val rp5XboxEntries = rp5Entries.take(2) + listOf(
+        procEntry(rp5XboxName, BUS_BLUETOOTH, 0x045e, 0x0b13, eventName = "event10"),
+        procEntry(rp5XboxName, BUS_USB, 0x2022, 0x3001, eventName = "event11"),
+    )
+
+    @Test
+    fun rp5BuiltInPadKeepsItsNodeWhenXboxPadHasTheSameName() {
+        val result = rp5Repository.resolveControllerDevice(
+            rp5XboxCandidate(0x2022, 0x3002, controllerNumber = 1),
+            rp5XboxEntries,
+            rp5Repository.computeMirroredNames(rp5XboxEntries),
+        )
+
+        assertEquals("/dev/input/event8", result?.path)
+        assertTrue(result!!.isKnownInternal)
+        assertNull(result.hideNodePath)
+        assertNull(result.mappingKey)
+    }
+
+    @Test
+    fun rp5XboxTwinHidesItselfInsteadOfTheSameNameBuiltInPad() {
+        val result = rp5Repository.resolveControllerDevice(
+            rp5XboxCandidate(0x2022, 0x3001, controllerNumber = 2),
+            rp5XboxEntries,
+            rp5Repository.computeMirroredNames(rp5XboxEntries),
+        )
+
+        assertEquals("/dev/input/event11", result?.path)
+        assertFalse(result!!.isInternal)
+        assertEquals("/dev/input/event11", result.hideNodePath)
+        assertEquals(MappingKey("045e:0b13"), result.mappingKey)
+    }
+
+    @Test
+    fun rp5XboxOriginalHidesItsTwinInsteadOfTheSameNameBuiltInPad() {
+        val result = repository.resolveControllerDevice(
+            rp5XboxCandidate(0x045e, 0x0b13, controllerNumber = 2),
+            rp5XboxEntries,
+            repository.computeMirroredNames(rp5XboxEntries),
+        )
+
+        assertEquals("/dev/input/event10", result?.path)
+        assertEquals("/dev/input/event11", result?.hideNodePath)
+    }
+
+    @Test
+    fun rp5XboxOriginalDoesNotHideTheBuiltInPadWhenTheTwinIsAbsent() {
+        val entries = rp5XboxEntries.dropLast(1)
+        val result = repository.resolveControllerDevice(
+            rp5XboxCandidate(0x045e, 0x0b13, controllerNumber = 2),
+            entries,
+            repository.computeMirroredNames(entries),
+        )
+
+        assertEquals("/dev/input/event10", result?.path)
+        assertNull(result?.hideNodePath)
+    }
+
+    @Test
+    fun rp5BuiltInPadDoesNotFallBackToTheSameNameXboxPad() {
+        val entries = rp5XboxEntries.drop(1)
+        val result = rp5Repository.resolveControllerDevice(
+            rp5XboxCandidate(0x2022, 0x3002, controllerNumber = 1),
+            entries,
+            rp5Repository.computeMirroredNames(entries),
+        )
+
+        assertNull(result)
+    }
+
+    private fun rp5XboxCandidate(vendorId: Int, productId: Int, controllerNumber: Int) =
+        ControllerCandidate(rp5XboxName, vendorId, productId, controllerNumber, guidOf(vendorId, productId))
+
+
     private fun procEntry(
         name: String,
         bus: Int,

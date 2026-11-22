@@ -183,18 +183,25 @@ internal class AndroidInputDeviceRepository(
         mirroredNames: Set<String>,
     ): ControllerDevice? {
         val normalizedName = candidate.name.lowercase()
+        val candidateHasDistinctInternalId = matchedInternalSignature(candidate.vendorId, candidate.productId)
+            ?.hasDistinctProductId == true
         val candidates = entries.filter { entry ->
             if (!pathExists(entry.path)) {
                 return@filter false
             }
 
+            val sameIds = entry.vendorId == candidate.vendorId && entry.productId == candidate.productId
+            // A reserved built-in ID identifies its node even when an external pad shares its name.
+            if (candidateHasDistinctInternalId || entry.internalSignature?.hasDistinctProductId == true) {
+                return@filter sameIds
+            }
+
             val sameVendorProduct =
-                candidate.vendorId != 0 &&
+                sameIds &&
+                    candidate.vendorId != 0 &&
                     candidate.productId != 0 &&
                     candidate.vendorId !in MIRRORING_QUIRK_VENDOR_IDS &&
-                    entry.vendorId !in MIRRORING_QUIRK_VENDOR_IDS &&
-                    entry.vendorId == candidate.vendorId &&
-                    entry.productId == candidate.productId
+                    entry.vendorId !in MIRRORING_QUIRK_VENDOR_IDS
             val sameName = entry.name.lowercase() == normalizedName
             sameVendorProduct || sameName
         }
@@ -208,12 +215,14 @@ internal class AndroidInputDeviceRepository(
                 }
                     .thenByDescending { it.bus == BUS_BLUETOOTH }
                     .thenByDescending { it.bus == BUS_USB && it.vendorId !in MIRRORING_QUIRK_VENDOR_IDS }
-                    .thenBy { it.isInternalControllerSignature }
+                    .thenBy { it.internalSignature != null }
                     .thenBy { it.eventNumber }
             )
             .firstOrNull()
             ?.let { entry ->
-                val isInternal = entry.isInternalControllerSignature && entry.name.lowercase() !in mirroredNames
+                val signature = entry.internalSignature
+                val isInternal = signature != null &&
+                    (signature.hasDistinctProductId || entry.name.lowercase() !in mirroredNames)
                 ControllerDevice(
                     name = entry.name,
                     path = entry.path,
@@ -222,7 +231,7 @@ internal class AndroidInputDeviceRepository(
                     handlers = entry.handlers,
                     isInternal = isInternal,
                     isKnownInternal = isInternal,
-                    hideNodePath = resolveHideNodePath(isInternal, normalizedName, entries),
+                    hideNodePath = if (isInternal) null else resolveHideNodePath(entry, normalizedName, entries),
                     // Only an external controller gets one: the internal pad IS the quirk vendor, so
                     // it has no separate real entry to point at, and it is never the one remapped.
                     mappingKey = if (isInternal) null else resolveMappingKey(entry.name, entries),
@@ -230,21 +239,18 @@ internal class AndroidInputDeviceRepository(
             }
     }
 
-    // The framework surfaces an external controller as the Odin quirk (vendor 0x2020) node bearing
-    // its name — which may ALSO be the node the mirror reads as source when the firmware exposes
-    // only the re-exposed node in /dev. Either way that is the node the hide-external feature
-    // unlinks. Returns it (present in /dev) for an external controller; null for the internal one
-    // (never hide the mirror target) and when no such node exists.
+    // Hide the firmware's copy: either the resolved source itself or its separate twin.
     private fun resolveHideNodePath(
-        isInternal: Boolean,
+        source: ProcInputEntry,
         normalizedName: String,
         entries: List<ProcInputEntry>,
     ): String? {
-        if (isInternal) {
-            return null
+        if (source.vendorId in MIRRORING_QUIRK_VENDOR_IDS) {
+            return source.path
         }
         return entries.firstOrNull { entry ->
             entry.vendorId in MIRRORING_QUIRK_VENDOR_IDS &&
+                entry.internalSignature?.hasDistinctProductId != true &&
                 entry.name.lowercase() == normalizedName &&
                 pathExists(entry.path)
         }?.path
@@ -307,8 +313,8 @@ internal class AndroidInputDeviceRepository(
         val eventNumber: Int
             get() = eventName.removePrefix("event").toIntOrNull() ?: Int.MAX_VALUE
 
-        val isInternalControllerSignature: Boolean
-            get() = matchedInternalSignature(vendorId, productId) != null
+        val internalSignature: InternalControllerSignature?
+            get() = matchedInternalSignature(vendorId, productId)
     }
 }
 

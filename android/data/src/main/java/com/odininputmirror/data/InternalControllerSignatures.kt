@@ -9,11 +9,14 @@ package com.odininputmirror.data
  * @param hasVendorMirroringQuirk true when the OS re-exposes connected external controllers as
  *   virtual nodes carrying this vendor id (the Odin does this), which requires twin-name
  *   filtering to tell a genuine internal pad from a mirrored external one.
+ * @param hasDistinctProductId true when the firmware reserves the signature's product IDs for
+ *   the built-in pad, even when a republished external controller has the same name.
  */
 internal data class InternalControllerSignature(
     val vendorIds: Set<Int>,
     val productIds: Set<Int>,
     val hasVendorMirroringQuirk: Boolean,
+    val hasDistinctProductId: Boolean = false,
 ) {
     fun matches(vendorId: Int, productId: Int): Boolean =
         vendorId in vendorIds && productId in productIds
@@ -38,6 +41,7 @@ internal val RETROID_POCKET_5_INTERNAL_CONTROLLER_SIGNATURE = InternalController
     vendorIds = setOf(0x2022),
     productIds = setOf(0x3002),
     hasVendorMirroringQuirk = true,
+    hasDistinctProductId = true,
 )
 
 /** Registry of recognised handheld internal controllers. Add an entry to support a new device. */
