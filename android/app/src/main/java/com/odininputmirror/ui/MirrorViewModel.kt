@@ -14,6 +14,7 @@ import com.odininputmirror.domain.model.ControllerDevice
 import com.odininputmirror.domain.model.MappingKey
 import com.odininputmirror.domain.model.MirrorStatus
 import com.odininputmirror.domain.model.findSavedControllerDevice
+import com.odininputmirror.domain.model.selectExternalController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +37,8 @@ data class MirrorUiState(
     val restartWaiting: Boolean = false,
     val docked: Boolean = false,
     val manualInternalGuid: String? = null,
+    val manualExternalGuid: String? = null,
+    val manualExternalName: String? = null,
     val unsupported: Boolean = false,
     // How many controls the external controller has captured, for the card. Null when it has no
     // identity to key a mapping on.
@@ -149,14 +152,18 @@ class MirrorViewModel(private val appContext: Context) : ViewModel() {
 
     private fun applyStatus(status: MirrorStatus, available: List<ControllerDevice>) {
         val autoLocal = available.firstOrNull { it.isInternal }
-        val autoExternal = available.firstOrNull { !it.isInternal }
+        // The same selection the supervisor makes, so the card never names a pad other than the one
+        // being mirrored.
+        val autoExternal = available.selectExternalController(autoLocal, status.manualExternalGuid, status.manualExternalName)
         val savedExternalIsLocal =
             autoLocal != null && savedIdentityMatches(status.source, status.sourceGuid, autoLocal)
 
         val localDevice = autoLocal
             ?: deviceFromSavedIdentity(status.target, status.targetGuid, available, "Saved built-in controller")
         val externalDevice = autoExternal
-            ?: if (savedExternalIsLocal) {
+            ?: if (savedExternalIsLocal || status.manualExternalGuid != null) {
+                // With a manual pick that is absent, the last-mirrored identity may be the very
+                // device the user picked away from; showing it would claim it is still the source.
                 null
             } else {
                 deviceFromSavedIdentity(status.source, status.sourceGuid, available, "Waiting for external controller")
@@ -175,6 +182,8 @@ class MirrorViewModel(private val appContext: Context) : ViewModel() {
                 restartWaiting = status.expectedRunning && !status.running,
                 docked = status.docked,
                 manualInternalGuid = status.manualInternalGuid,
+                manualExternalGuid = status.manualExternalGuid,
+                manualExternalName = status.manualExternalName,
                 // Database defaults deliberately do not count: the green border and CUSTOM MAPPING
                 // badge mean "the user made this", and a pad that merely matched its profile would
                 // otherwise wear them out of the box.
@@ -287,6 +296,28 @@ class MirrorViewModel(private val appContext: Context) : ViewModel() {
         }
     }
 
+    // Persist only. Unlike the internal pick this is allowed while the mirror runs — a wrong source
+    // is exactly when the user needs it — and the supervisor restarts onto the new source on its own.
+    // Takes the device, not just its guid: the name is saved alongside so a pad can be told apart from
+    // a firmware device sharing its vendor:product. Null goes back to automatic.
+    fun selectExternalController(device: ControllerDevice?) {
+        if (_state.value.busy) return
+        val guid = device?.guid?.takeIf { it.isNotBlank() }
+        val name = device?.name?.takeIf { guid != null }
+        _state.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { graph.setManualExternalController(guid, name) }
+                _state.update { it.copy(manualExternalGuid = guid, manualExternalName = name) }
+                refresh()
+            } catch (error: Exception) {
+                _state.update { it.copy(message = error.message ?: error.toString()) }
+            } finally {
+                _state.update { it.copy(busy = false) }
+            }
+        }
+    }
+
     fun toggleVirtualMouse(nextValue: Boolean) {
         val current = _state.value
         if (current.busy) return
@@ -313,7 +344,13 @@ class MirrorViewModel(private val appContext: Context) : ViewModel() {
         status.running -> "Dock mirror active."
         !status.autoMirrorEnabled -> "Automatic dock mirror is disabled."
         devices.none { it.isInternal } -> "Waiting for the built-in controller."
-        devices.none { !it.isInternal } -> "Waiting for an external controller."
+        devices.selectExternalController(
+            devices.firstOrNull { it.isInternal },
+            status.manualExternalGuid,
+            status.manualExternalName,
+        ) == null ->
+            if (status.manualExternalGuid != null) "Waiting for the selected external controller."
+            else "Waiting for an external controller."
         status.expectedRunning -> "Controller detected. Mirror will start automatically."
         else -> "Automatic dock mirror is ready."
     }

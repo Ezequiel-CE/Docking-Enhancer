@@ -76,6 +76,7 @@ fun MirrorScreen(viewModel: MirrorViewModel) {
         return
     }
     var pickerOpen by remember { mutableStateOf(false) }
+    var externalPickerOpen by remember { mutableStateOf(false) }
     var screenHasFocus by remember { mutableStateOf(false) }
     // Initial gamepad focus prefers the first control (the Local Controller card) and falls back to
     // the always-present primary button for when the card isn't focusable (mirror on / busy).
@@ -216,9 +217,13 @@ fun MirrorScreen(viewModel: MirrorViewModel) {
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     title = "External Controller",
                     device = state.externalDevice,
-                    hint = "First connected controller",
+                    hint = if (state.manualExternalGuid == null) {
+                        "First connected · tap to change"
+                    } else {
+                        "Selected manually · tap to change"
+                    },
                     enabled = true,
-                    onClick = null,
+                    onClick = if (state.busy) null else ({ externalPickerOpen = true }),
                     hasCustomMapping = (state.mappedControlCount ?: 0) > 0,
                     hasSeededMapping = state.hasSeededMapping,
                     // Only offered once the controller has an identity to save a mapping against.
@@ -292,18 +297,37 @@ fun MirrorScreen(viewModel: MirrorViewModel) {
     }
 
     if (pickerOpen) {
-        InternalControllerPicker(
+        ControllerPicker(
+            title = "Select internal controller",
+            emptyMessage = "No controllers detected. Connect the built-in controller and try again.",
             // Drop whatever is currently acting as the external pad: this list answers "which one is
             // built into the handheld?", and the mirror source is never that. Matching on path keeps
             // a placeholder external (resolved from saved identity, absent from the list) from
             // filtering anything out. "Automatic (detect)" stays available to undo a wrong pick.
             devices = state.devices.filter { it.path != state.externalDevice?.path },
             selectedGuid = state.manualInternalGuid,
-            onSelect = { guid ->
+            onSelect = { device ->
                 pickerOpen = false
-                viewModel.selectInternalController(guid)
+                viewModel.selectInternalController(device?.guid)
             },
             onClose = { pickerOpen = false },
+        )
+    }
+
+    if (externalPickerOpen) {
+        ControllerPicker(
+            title = "Select external controller",
+            emptyMessage = "No other controllers detected. Connect your controller and try again.",
+            // Everything but the built-in pad. A pad that is hidden while mirrored still appears: the
+            // device list re-materialises it, so the current source stays pickable.
+            devices = state.devices.filter { !it.isInternal && it.path != state.localDevice?.path },
+            selectedGuid = state.manualExternalGuid,
+            selectedName = state.manualExternalName,
+            onSelect = { device ->
+                externalPickerOpen = false
+                viewModel.selectExternalController(device)
+            },
+            onClose = { externalPickerOpen = false },
         )
     }
 

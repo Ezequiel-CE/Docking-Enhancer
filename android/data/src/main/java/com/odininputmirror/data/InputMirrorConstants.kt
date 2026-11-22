@@ -52,6 +52,8 @@ internal const val KEY_CONFIG_GENERATION = "config_generation"
 internal const val KEY_EXPECTED_RUNNING = "expected_running"
 internal const val KEY_STARTED_AT = "started_at"
 internal const val KEY_MANUAL_INTERNAL_GUID = "manual_internal_guid"
+internal const val KEY_MANUAL_EXTERNAL_GUID = "manual_external_guid"
+internal const val KEY_MANUAL_EXTERNAL_NAME = "manual_external_name"
 // Namespace for per-controller mappings, keyed by the REAL device's vendor:product. Namespaced
 // because these share a preferences file with the mirror's own settings.
 internal const val KEY_MAPPING_PREFIX = "mapping_"

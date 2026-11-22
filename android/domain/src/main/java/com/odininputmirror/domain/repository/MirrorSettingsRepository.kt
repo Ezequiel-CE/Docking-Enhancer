@@ -12,6 +12,8 @@ interface MirrorSettingsRepository {
     fun setVirtualMouseEnabled(enabled: Boolean)
     fun setAutoMirrorEnabled(enabled: Boolean)
     fun setManualInternalController(guid: String?)
+    /** Saves the picked external controller, or clears the pick when [guid] is null or blank. */
+    fun setManualExternalController(guid: String?, name: String?)
 
     /**
      * Advance the config generation without changing a setting.

@@ -1,5 +1,8 @@
 #!/bin/sh
-# Refuse a commit that changes the daemon's sources without the rebuilt binary alongside it.
+# Refuse two kinds of commit that compile fine and are wrong on the device:
+#   1. one that leaves FORCE_DOCK_MODE_FOR_DEV on — every debug build then reports "docked" with
+#      nothing attached, and nothing short of using the app reveals it;
+#   2. one that changes the daemon's sources without the rebuilt binary alongside it.
 #
 # The daemon ships as a committed ELF asset, so a source-only commit leaves the repo describing one
 # daemon and shipping another — and nothing downstream would notice, because Gradle never compiles
@@ -9,6 +12,18 @@
 
 staged=$(git diff --cached --name-only --diff-filter=ACM)
 
+# 1. The dock override. Checked only when build.gradle is part of the commit, against the STAGED
+#    content, so an unrelated commit is never blocked and an unstaged fix cannot make this pass.
+gradle='android/app/build.gradle'
+if printf '%s\n' "$staged" | grep -Fxq "$gradle"; then
+    if git show ":$gradle" | grep -Eq 'FORCE_DOCK_MODE_FOR_DEV"[[:space:]]*,[[:space:]]*"true"'; then
+        echo "pre-commit: FORCE_DOCK_MODE_FOR_DEV is \"true\" in the staged $gradle." >&2
+        echo "Debug builds would report docked with nothing attached. Set it back to \"false\"." >&2
+        exit 1
+    fi
+fi
+
+# 2. The daemon binary.
 sources_changed=$(printf '%s\n' "$staged" | grep -E '^android/app/src/main/native/.*\.(c|h)$' || true)
 if [ -z "$sources_changed" ]; then
     exit 0

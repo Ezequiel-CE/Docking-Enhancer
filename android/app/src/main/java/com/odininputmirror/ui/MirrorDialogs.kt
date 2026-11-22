@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.odininputmirror.domain.model.ControllerDevice
+import com.odininputmirror.domain.model.matchesManualPick
 import com.odininputmirror.ui.theme.Palette
 
 // The two modal surfaces of the mirror screen: the dead end for an unsupported device, and the
@@ -71,10 +72,16 @@ internal fun UnsupportedDeviceDialog(serviceUnresponsive: Boolean) {
 }
 
 @Composable
-internal fun InternalControllerPicker(
+internal fun ControllerPicker(
+    title: String,
+    emptyMessage: String,
     devices: List<ControllerDevice>,
     selectedGuid: String?,
-    onSelect: (String?) -> Unit,
+    // Matched too when given: a guid is only vendor:product, so two devices can share one (the RP5's
+    // virtual mouse and a republished pad), and the guid alone would mark both as selected.
+    selectedName: String? = null,
+    // The picked device, or null for automatic. Devices without a guid cannot be saved as a pick.
+    onSelect: (ControllerDevice?) -> Unit,
     onClose: () -> Unit,
 ) {
     Dialog(onDismissRequest = onClose) {
@@ -86,7 +93,7 @@ internal fun InternalControllerPicker(
                 .border(1.dp, Palette.border, RoundedCornerShape(14.dp))
                 .padding(horizontal = 24.dp, vertical = 20.dp),
         ) {
-            Text("Select internal controller", color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+            Text(title, color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(14.dp))
             Column(
                 modifier = Modifier
@@ -96,7 +103,7 @@ internal fun InternalControllerPicker(
                 PickerOption(name = "Automatic (detect)", selected = selectedGuid == null) { onSelect(null) }
                 if (devices.isEmpty()) {
                     Text(
-                        "No controllers detected. Connect the built-in controller and try again.",
+                        emptyMessage,
                         color = Palette.textSecondary,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(vertical = 12.dp),
@@ -105,8 +112,8 @@ internal fun InternalControllerPicker(
                     devices.forEach { device ->
                         PickerOption(
                             name = device.name,
-                            selected = device.guid.isNotEmpty() && device.guid == selectedGuid,
-                        ) { if (device.guid.isNotEmpty()) onSelect(device.guid) }
+                            selected = device.matchesManualPick(selectedGuid, selectedName),
+                        ) { if (device.guid.isNotEmpty()) onSelect(device) }
                     }
                 }
             }
