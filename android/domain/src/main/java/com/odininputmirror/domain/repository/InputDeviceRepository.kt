@@ -20,4 +20,14 @@ interface InputDeviceRepository {
      * controller database's indices only mean anything counted over exactly that set.
      */
     fun sourceTraits(key: MappingKey): TargetTraits? = null
+
+    /**
+     * The capability bitmasks of the node the mirror actually READS for this mapping key: the
+     * firmware's republished twin of the real pad. Null when no twin exists.
+     *
+     * Some firmware (the Retroid Pocket 6) re-publishes every external pad already translated to the
+     * handheld's own layout, so the twin's codes are not the real pad's codes. A default mapping built
+     * from the real pad's layout would then be applied on top of a translation that already happened.
+     */
+    fun twinTraits(key: MappingKey): TargetTraits? = null
 }

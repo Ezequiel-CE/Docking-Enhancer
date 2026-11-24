@@ -44,10 +44,27 @@ internal val RETROID_POCKET_5_INTERNAL_CONTROLLER_SIGNATURE = InternalController
     hasDistinctProductId = true,
 )
 
+/**
+ * Retroid Pocket 6. Unlike the RP5, the built-in pad is "Retroid Pocket Controller" on 2022:3001 -
+ * the SAME vendor:product the firmware gives every republished external pad (e.g. "Xbox Wireless
+ * Controller" 2022:3001) and the virtual mouse. So there is no distinct product id: the internal pad
+ * is told apart from an external twin by name (a twin always has a real, non-2022 entry under its
+ * own name; the internal pad has none). Without this entry nothing is flagged internal and the
+ * "first controller wins" fallback flips between the built-in and external pad as Android
+ * renumbers them, which loops the mirror forever.
+ */
+internal val RETROID_POCKET_6_INTERNAL_CONTROLLER_SIGNATURE = InternalControllerSignature(
+    vendorIds = setOf(0x2022),
+    productIds = setOf(0x3001),
+    hasVendorMirroringQuirk = true,
+    hasDistinctProductId = false,
+)
+
 /** Registry of recognised handheld internal controllers. Add an entry to support a new device. */
 internal val KNOWN_INTERNAL_CONTROLLER_SIGNATURES: List<InternalControllerSignature> = listOf(
     ODIN_INTERNAL_CONTROLLER_SIGNATURE,
     RETROID_POCKET_5_INTERNAL_CONTROLLER_SIGNATURE,
+    RETROID_POCKET_6_INTERNAL_CONTROLLER_SIGNATURE,
 )
 
 internal fun matchedInternalSignature(vendorId: Int, productId: Int): InternalControllerSignature? =

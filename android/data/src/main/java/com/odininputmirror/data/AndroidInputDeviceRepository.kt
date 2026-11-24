@@ -55,6 +55,27 @@ internal class AndroidInputDeviceRepository(
         return TargetTraits(keys = entry.keyBits, axes = entry.absBits)
     }
 
+    // The firmware's twin of the real pad behind [key]: same name, a handheld-vendor id, and not the
+    // handheld's own built-in pad. This is the node the mirror really reads, so its bitmasks say what
+    // codes actually arrive - which can differ from the real pad's (see [InputDeviceRepository.twinTraits]).
+    override fun twinTraits(key: MappingKey): TargetTraits? {
+        val entries = readProcEntries()
+        val real = entries.firstOrNull {
+            it.vendorId !in MIRRORING_QUIRK_VENDOR_IDS &&
+                it.vendorId != 0 &&
+                MappingKey.of(it.vendorId, it.productId) == key
+        } ?: return null
+        val twin = entries.firstOrNull {
+            it.vendorId in MIRRORING_QUIRK_VENDOR_IDS &&
+                it.internalSignature?.hasDistinctProductId != true &&
+                it.name.equals(real.name, ignoreCase = true)
+        } ?: return null
+        if (twin.keyBits.isEmpty() && twin.absBits.isEmpty()) {
+            return null
+        }
+        return TargetTraits(keys = twin.keyBits, axes = twin.absBits)
+    }
+
     private fun readProcEntries(): List<ProcInputEntry> =
         shell.read("cat /proc/bus/input/devices")
             .split(Regex("\\n\\s*\\n"))

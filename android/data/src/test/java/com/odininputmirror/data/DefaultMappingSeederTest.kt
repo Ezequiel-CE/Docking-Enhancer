@@ -102,6 +102,73 @@ class DefaultMappingSeederTest {
         assertEquals("a user's own mapping triggered a database lookup", 0, databaseReads)
     }
 
+    // The handheld's own layout, as the firmware's twin republishes every pad: not the real pad's codes.
+    private val translatedTwin = TargetTraits(
+        keys = setOf(0x130, 0x131, 0x133, 0x134, 0x136, 0x137, 0x13a, 0x13b, 0x13c, 0x13d, 0x13e),
+        axes = setOf(0x00, 0x01, 0x02, 0x05, 0x09, 0x0a, 0x10, 0x11),
+    )
+
+    @Test
+    fun aPadWhoseTwinIsAlreadyTranslatedIsNotSeeded() {
+        // The RP6 bug: mapping the real pad's layout on top of the twin's already-translated codes
+        // moved the right stick onto the triggers and shifted X, Y and both bumpers.
+        val mappings = FakeMappingRepository()
+        val seeder = DefaultMappingSeeder(
+            { sequenceOf(eightBitDo) },
+            FakeDeviceRepository(twin = { translatedTwin }) { padTraits },
+            mappings,
+        )
+
+        seeder.seedIfEmpty(known)
+
+        assertTrue("a translated twin got a default mapping", mappings.saved.isEmpty())
+    }
+
+    @Test
+    fun aStaleSeededMappingIsRemovedWhenTheTwinIsTranslated() {
+        val mappings = FakeMappingRepository()
+        mappings.saved[known] = ControllerMapping(mappingSlotsSample())
+        mappings.seeded[known] = true
+        val seeder = DefaultMappingSeeder(
+            { sequenceOf(eightBitDo) },
+            FakeDeviceRepository(twin = { translatedTwin }) { padTraits },
+            mappings,
+        )
+
+        seeder.seedIfEmpty(known)
+
+        assertTrue("the stale default survived", mappings.saved.isEmpty())
+    }
+
+    @Test
+    fun aMappingTheUserMadeSurvivesATranslatedTwin() {
+        val mappings = FakeMappingRepository()
+        mappings.saved[known] = ControllerMapping(mappingSlotsSample())
+        val seeder = DefaultMappingSeeder(
+            { sequenceOf(eightBitDo) },
+            FakeDeviceRepository(twin = { translatedTwin }) { padTraits },
+            mappings,
+        )
+
+        seeder.seedIfEmpty(known)
+
+        assertFalse("the user's own mapping was deleted", mappings.saved.isEmpty())
+    }
+
+    @Test
+    fun aPadWhoseTwinPassesCodesThroughStillGetsItsDefault() {
+        val mappings = FakeMappingRepository()
+        val seeder = DefaultMappingSeeder(
+            { sequenceOf(eightBitDo) },
+            FakeDeviceRepository(twin = { padTraits }) { padTraits },
+            mappings,
+        )
+
+        seeder.seedIfEmpty(known)
+
+        assertFalse("a raw-passthrough twin lost its default mapping", mappings.saved.isEmpty())
+    }
+
     private fun mappingSlotsSample() = GameControllerDb(sequenceOf(eightBitDo))
         .entryFor(0x2dc8, 0x3106)!!
         .let { entry ->
@@ -132,7 +199,11 @@ class DefaultMappingSeederTest {
         }
     }
 
-    private class FakeDeviceRepository(private val traits: () -> TargetTraits?) : InputDeviceRepository {
+    private class FakeDeviceRepository(
+        private val twin: () -> TargetTraits? = { null },
+        private val traits: () -> TargetTraits?,
+    ) : InputDeviceRepository {
+        override fun twinTraits(key: MappingKey): TargetTraits? = twin()
         override fun getConnectedControllers(): List<ControllerDevice> = emptyList()
         override fun targetTraits(): TargetTraits? = odinFallbackTraits()
         override fun sourceTraits(key: MappingKey): TargetTraits? = traits()

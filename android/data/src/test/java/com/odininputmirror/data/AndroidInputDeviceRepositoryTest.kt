@@ -593,6 +593,58 @@ class AndroidInputDeviceRepositoryTest {
         ControllerCandidate(rp5XboxName, vendorId, productId, controllerNumber, guidOf(vendorId, productId))
 
 
+    // -- Retroid Pocket 6 ------------------------------------------------------
+    // /proc/bus/input/devices captured on a real RP6 (eng.RP6.20260616) with an Xbox pad over
+    // Bluetooth. The built-in pad is "Retroid Pocket Controller" on 2022:3001, the SAME id as the
+    // virtual mouse and the republished twin of the external pad (event9 original is deleted).
+
+    private val rp6Entries = listOf(
+        procEntry("Retroid Pocket Virtual Mouse", BUS_USB, 0x2022, 0x3001, eventName = "event8"),
+        procEntry("Retroid Pocket Controller", BUS_USB, 0x2022, 0x3001, eventName = "event7"),
+        procEntry("Xbox Wireless Controller", BUS_BLUETOOTH, 0x045e, 0x02e0, eventName = "event9"),
+        procEntry("Xbox Wireless Controller", BUS_USB, 0x2022, 0x3001, eventName = "event10"),
+    )
+    private val rp6Repository = AndroidInputDeviceRepository(pathExists = { it != "/dev/input/event9" })
+
+    private fun rp6Resolve(name: String, vendorId: Int, productId: Int, controllerNumber: Int) =
+        rp6Repository.resolveControllerDevice(
+            ControllerCandidate(name, vendorId, productId, controllerNumber, guidOf(vendorId, productId)),
+            rp6Entries,
+            rp6Repository.computeMirroredNames(rp6Entries),
+        )
+
+    @Test
+    fun rp6BuiltInPadIsRecognisedAsInternalDespiteSharingItsIdWithTheTwin() {
+        val result = rp6Resolve("Retroid Pocket Controller", 0x2022, 0x3001, controllerNumber = 2)
+
+        assertEquals("/dev/input/event7", result?.path)
+        assertTrue(result!!.isInternal)
+        assertTrue(result.isKnownInternal)
+        assertNull(result.hideNodePath)
+    }
+
+    @Test
+    fun rp6ExternalTwinIsNotInternalAndHidesItself() {
+        val result = rp6Resolve("Xbox Wireless Controller", 0x2022, 0x3001, controllerNumber = 1)
+
+        assertEquals("/dev/input/event10", result?.path)
+        assertFalse(result!!.isInternal)
+        assertEquals("/dev/input/event10", result.hideNodePath)
+        assertEquals(MappingKey("045e:02e0"), result.mappingKey)
+    }
+
+    @Test
+    fun rp6InternalPadStaysInternalWhenAndroidNumbersTheExternalPadFirst() {
+        // The original bug: with no signature the lowest controller number was assumed internal, so
+        // the roles swapped every time Android renumbered the pads.
+        val internal = rp6Resolve("Retroid Pocket Controller", 0x2022, 0x3001, controllerNumber = 2)!!
+        val external = rp6Resolve("Xbox Wireless Controller", 0x2022, 0x3001, controllerNumber = 1)!!
+
+        val resolved = rp6Repository.resolveInternalController(listOf(external, internal), null)
+
+        assertEquals("/dev/input/event7", resolved.single { it.isInternal }.path)
+    }
+
     private fun procEntry(
         name: String,
         bus: Int,
