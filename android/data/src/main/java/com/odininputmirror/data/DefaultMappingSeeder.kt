@@ -36,6 +36,18 @@ internal class DefaultMappingSeeder(
     private val missing: MutableSet<MappingKey> = ConcurrentHashMap.newKeySet()
 
     fun seedIfEmpty(key: MappingKey) {
+        // The database's indices describe the REAL pad's codes. If the firmware's twin - the node the
+        // mirror actually reads - already carries the handheld's layout (different capability bits
+        // from the real pad), those indices no longer apply: mapping on top would translate twice
+        // (right stick onto the triggers, X/Y/bumpers shifted). Such a pad needs no default mapping,
+        // and a default seeded by an earlier version is stale and removed. A mapping the user made
+        // themselves is never touched.
+        if (twinAlreadyTranslated(key)) {
+            if (runCatching { mappings.isSeeded(key) }.getOrDefault(false)) {
+                runCatching { mappings.clear(key) }
+            }
+            return
+        }
         val existing = runCatching { mappings.get(key) }.getOrNull() ?: return
         if (!existing.isEmpty) {
             return
@@ -77,5 +89,11 @@ internal class DefaultMappingSeeder(
             // badge should only ever mean the user made it. The first edit clears the mark.
             mappings.setSeeded(key, true)
         }
+    }
+
+    private fun twinAlreadyTranslated(key: MappingKey): Boolean {
+        val real = devices.sourceTraits(key) ?: return false
+        val twin = devices.twinTraits(key) ?: return false
+        return twin.keys != real.keys || twin.axes != real.axes
     }
 }
